@@ -15,7 +15,10 @@ def plot_current_log(filename, start_ms=None, stop_ms=None):
         header_row = None
         with open(filename, 'r', encoding='utf-8', errors='ignore') as f:
             for i, line in enumerate(f):
-                # Search for known headers
+                # Search for known headers (newest first with ActiveChannel)
+                if "SampleIndex,Voltage(V),Current(A),ActiveChannel" in line:
+                    header_row = i
+                    break
                 if "SampleIndex,Voltage(V),Current(A)" in line:
                     header_row = i
                     break
@@ -62,12 +65,23 @@ def plot_current_log(filename, start_ms=None, stop_ms=None):
             print(f"No data found in the range {start_ms}ms to {stop_ms}ms")
             return
 
-        # Plot
-        fig = plt.figure(figsize=(12, 10))
+        # Debug: print column names and types
+        print(f"Columns found: {list(df.columns)}")
+        print(f"Data types:\n{df.dtypes}")
         
-        if 'Voltage(V)' in df.columns:
-            # Dual plot
-            ax1 = plt.subplot(2, 1, 1)
+        # Determine number of subplots based on columns
+        has_voltage = 'Voltage(V)' in df.columns
+        has_channel = 'ActiveChannel' in df.columns
+        n_plots = 3 if (has_voltage and has_channel) else (2 if has_voltage else 1)
+        
+        print(f"has_voltage={has_voltage}, has_channel={has_channel}, n_plots={n_plots}")
+        
+        # Plot
+        fig = plt.figure(figsize=(14, 4*n_plots))
+        
+        if has_voltage:
+            # Triple plot: Voltage, Current, Active Channel
+            ax1 = plt.subplot(n_plots, 1, 1)
             ax1.plot(df['Time(ms)'], df['Voltage(V)'], label='Voltage (V)', color='orange', linewidth=0.8)
             ax1.set_title('VHP Oscilloscope Analysis: Voltage')
             ax1.set_ylabel('Voltage (V)')
@@ -78,13 +92,24 @@ def plot_current_log(filename, start_ms=None, stop_ms=None):
             ax1_top = ax1.secondary_xaxis('top', functions=(lambda x: x / MS_PER_SAMPLE, lambda x: x * MS_PER_SAMPLE))
             ax1_top.set_xlabel('Sample Index')
 
-            ax2 = plt.subplot(2, 1, 2, sharex=ax1)
+            ax2 = plt.subplot(n_plots, 1, 2, sharex=ax1)
             ax2.plot(df['Time(ms)'], df['Current(A)'], label='Current (A)', color='blue', linewidth=0.8)
             ax2.set_title('VHP Oscilloscope Analysis: Current')
-            ax2.set_xlabel('Time (ms)')
             ax2.set_ylabel('Current (Amps)')
             ax2.grid(True, which='both', linestyle='--', alpha=0.7)
             ax2.legend()
+            
+            # Add active channel subplot if available
+            if has_channel:
+                ax3 = plt.subplot(n_plots, 1, 3, sharex=ax1)
+                ax3.step(df['Time(ms)'], df['ActiveChannel'], where='post', label='Active Channel', color='green', linewidth=1.5)
+                ax3.set_title('VHP Oscilloscope Analysis: Active Channel Timeline')
+                ax3.set_xlabel('Time (ms)')
+                ax3.set_ylabel('Channel ID (0-7)')
+                ax3.set_ylim(-0.5, 7.5)
+                ax3.set_yticks(range(8))
+                ax3.grid(True, which='both', linestyle='--', alpha=0.7)
+                ax3.legend()
             
             # Print stats
             print(f"Mean Voltage: {df['Voltage(V)'].mean():.4f} V")
@@ -107,6 +132,17 @@ def plot_current_log(filename, start_ms=None, stop_ms=None):
         std_current = df['Current(A)'].std()
         print(f"Mean Current: {mean_current:.6f} A")
         print(f"Std Dev: {std_current:.6f} A")
+        
+        # Storage capacity info
+        print(f"\n--- Storage Summary ---")
+        print(f"Samples recorded: {len(df)}")
+        duration_sec = (df['Time(ms)'].max() - df['Time(ms)'].min()) / 1000.0
+        print(f"Duration: {duration_sec:.3f} seconds")
+        print(f"Sampling rate: {FS:.1f} Hz")
+        print(f"\nMax storage (kBufferSize=5000): 5000 samples = {5000/FS:.3f} sec (0.85 sec @ 40Hz = 34 cycles)")
+        print(f"Potential upgrade to 10000 samples = {10000/FS:.3f} sec (1.70 sec @ 40Hz = 68 cycles)")
+        print(f"Potential upgrade to 15000 samples = {15000/FS:.3f} sec (2.56 sec @ 40Hz = 102 cycles)")
+        print(f"Memory per sample: 9 bytes (float voltage + float current + uint8 channel)")
         
         output_file = filename.replace('.log', '').replace('.csv', '') + ".png"
         

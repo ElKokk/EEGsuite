@@ -18,6 +18,7 @@ using namespace audio_tactile;
 SStream *g_stream = 0;
 bool g_ble_connected = false;
 bool g_running = false;
+uint32_t g_startup_frame_skip = 0;  // Skip first frames to avoid startup glitch
 // uint8_t g_volume = 75; // was 25 // moved to settings.hpp  
 // uint16_t g_volume_lvl = g_volume * g_settings.vol_amplitude / 100;
 uint16_t g_volume_lvl;  // Will be calculated in setup()
@@ -49,16 +50,16 @@ void setup() {
     
     // --- FORCE SETTINGS FOR 40Hz OSCILLOSCOPE MODE ---
     g_settings.stimfreq = 40;        
-    g_settings.single_channel = 5;   // Force WebUI Channel 5
+    g_settings.single_channel = 5;   // Force internal channel 5 (displays as WebUI CH6)
     g_settings.volume = 80;          
     g_settings.chan8 = true;         
     g_settings.test_mode = true;     
-    Serial.println("FORCED MODE: 40Hz, WebUI CH5 (PCB CH4), Volume 80%");
+    Serial.println("FORCED MODE: 40Hz, WebUI CH6 (PCB CH5), Volume 80%");
 
     Multiplexer.Initialize();
     Multiplexer.Enable();
-    Multiplexer.ConnectChannel(order_pairs[4]); // Pre-connect Mux to CH5
-    measuring_channel = 4;
+    Multiplexer.ConnectChannel(order_pairs[5]); // Pre-connect Mux to internal CH5 (WebUI CH6)
+    measuring_channel = 5;
     
     PwmTactor.OnSequenceEnd(OnPwmSequenceEnd);
     PwmTactor.Initialize();
@@ -128,7 +129,12 @@ void OnPwmSequenceEnd() {
             // Estimate drive voltage from PWM
             float voltage_est = (float)PwmTactor.GetChannelPointer(active_channel)[0] * (3.7f / 512.0f);
             
-            g_dlog.Log(voltage_est, current_amps);
+            // Skip first frames to avoid startup glitch (caused by PWM residual state)
+            if (g_startup_frame_skip > 0) {
+                g_startup_frame_skip--;
+            } else {
+                g_dlog.Log(voltage_est, current_amps, active_channel);
+            }
         }
 
         // Update PWM buffers
@@ -278,9 +284,11 @@ void processSerialCommand(String cmd) {
         break;
 
       case 'C':
-        g_settings.single_channel = constrain(value, 0, 8);
+        // Accept 1-8 from user, store as 0-7 internally
+        int ui_channel = constrain(value, 1, 8);
+        g_settings.single_channel = ui_channel - 1;  // Convert to 0-indexed
         Serial.print("'single_channel' set to ");
-        Serial.println(g_settings.single_channel);
+        Serial.println(ui_channel);  // Echo user-facing 1-indexed value
         break;
 
       default:
@@ -336,6 +344,12 @@ void ToggleStream() {
         g_dlog.Reset();
         g_current_filter.Reset();  // Reset filter to avoid startup transients 
         g_settings.vca_load_estimation = 0.0f; // Reset load estimation for new stream
+        g_startup_frame_skip = 2;  // Skip first 2 frames to avoid startup glitch
+        
+        // Clear PWM buffers to silence before stream starts (prevents startup glitch)
+        for(uint32_t ch = 0; ch < 8; ch++) {
+            PwmTactor.SilenceChannel(ch, g_volume_lvl);
+        }
         
         nrf_gpio_pin_set(kLedPinGreen);
         g_stream = new SStream(g_settings.chan8,

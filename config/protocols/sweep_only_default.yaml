@@ -1,0 +1,19 @@
+Channel:
+  Start: 1
+  End: 8
+  Steps: 1
+
+Volume:
+  Start: 100     
+  End: 100
+  Steps: 10
+
+Frequency:
+  Start: 32
+  End: 32
+  Steps: 2
+
+Measurements:
+  Number: 1
+  Duration_on: 0.1
+  Duration_off: 0.1

@@ -10,6 +10,7 @@
 struct LogSample {
     float voltage; // Estimated voltage (from PWM)
     float current; // Measured current
+    uint8_t channel; // Active channel (0-7)
 };
 
 class DLog {
@@ -25,10 +26,10 @@ public:
         sample_count_ = 0;
     }
 
-    // Log a sample pair
-    void Log(float voltage_V, float current_A) {
+    // Log a sample triplet
+    void Log(float voltage_V, float current_A, uint8_t channel) {
         if (sample_count_ < kBufferSize) {
-            buffer_[sample_count_] = {voltage_V, current_A};
+            buffer_[sample_count_] = {voltage_V, current_A, channel};
             sample_count_++;
         }
     }
@@ -40,13 +41,15 @@ public:
 
     // Print all samples to Serial (CSV format)
     void PrintRawData() const {
-        Serial.println("SampleIndex,Voltage(V),Current(A)");
+        Serial.println("SampleIndex,Voltage(V),Current(A),ActiveChannel");
         for (uint32_t i = 0; i < sample_count_; i++) {
             Serial.print(i);
             Serial.print(",");
             Serial.print(buffer_[i].voltage, 4);
             Serial.print(",");
-            Serial.println(buffer_[i].current, 6);
+            Serial.print(buffer_[i].current, 6);
+            Serial.print(",");
+            Serial.println(buffer_[i].channel + 1);  // Convert 0-7 to 1-8 for display
         }
     }
 };
