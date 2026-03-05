@@ -19,6 +19,10 @@ This guide provides a step-by-step walkthrough for preparing, running, and analy
     *   Open Windows Device Manager (`devmgmt.msc`) on both the 'EEG Acquisition PC' and the 'Control PC'.
     *   Note the COM port for the EEG board (e.g., `COM3`).
     *   Note the COM port for the VHP Stimulator (e.g., `COM5`).
+  
+    *   #method for linux:
+    *   in terminal: sudo dmesg | tail
+    *      
 
 4.  **Configuration**:
     *   Edit `.\config\hardware\freeeeg.yaml`.
