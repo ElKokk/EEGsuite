@@ -74,13 +74,13 @@ By default, the system saves data to the `/data` folder in the project root. If 
 
 #### Option 1: CLI Override (Recommended for quick changes)
 Use the `--data-root` argument before the command:
-```powershell
-python -m src.main --data-root "C:\MyLocalData" sweep -d .\config\hardware\freeeeg.yaml -p .\config\protocols\sweep_default.yaml
+```bash
+python -m src.main --data-root "path/to/data" sweep -d config/hardware/freeeeg.yaml -p config/protocols/sweep_default.yaml
 ```
 
 #### Option 2: Environment Variable (Persistent)
 Set the `EEG_CLOUD_ROOT` environment variable. The system will create `data/`, `logs/`, and `reports/` inside this path.
-*   **Windows (PowerShell)**: `[System.Environment]::SetEnvironmentVariable('EEG_CLOUD_ROOT', 'D:\EEG_Storage', 'User')`
+*   **Windows (PowerShell)**: `[System.Environment]::SetEnvironmentVariable('EEG_CLOUD_ROOT', 'D:/EEG_Storage', 'User')`
 *   **Linux/Mac**: `export EEG_CLOUD_ROOT="/path/to/storage"`
 
 #### Option 3: Google Drive Integration (Automated API)

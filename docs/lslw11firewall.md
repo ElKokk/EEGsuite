@@ -1,12 +1,12 @@
-# 🛡️ Windows 11 Firewall Configuration for Lab Streaming Layer (LSL)
+# 🛡️ Firewall Configuration for Lab Streaming Layer (LSL)
 
-This guide provides the necessary steps to configure the Windows 11 Firewall to allow seamless EEG data streaming via the **Lab Streaming Layer (LSL)** protocol.
+This guide provides the necessary steps to configure the Firewall (Windows 11 or Linux) to allow seamless EEG data streaming via the **Lab Streaming Layer (LSL)** protocol.
 
 ---
 
 ## 📖 Introduction
 
-LSL relies on **UDP Multicast** for stream discovery and **TCP/UDP** for data transmission. By default, Windows 11 implements strict security policies that block these communications, particularly on "Public" network profiles.
+LSL relies on **UDP Multicast** for stream discovery and **TCP/UDP** for data transmission. By default, many security policies block these communications.
 
 ## 🏗️ Terminology
 
@@ -15,7 +15,7 @@ LSL relies on **UDP Multicast** for stream discovery and **TCP/UDP** for data tr
 
 ---
 
-## ⚙️ Configuration Steps
+## ⚙️ Windows 11 Configuration
 
 ### 1. Set Network Profile to "Private"
 Windows blocks LSL discovery on "Public" networks. Ensure your connection is set to **Private**.
@@ -40,6 +40,21 @@ New-NetFirewallRule -DisplayName "LSL Discovery (UDP-In)" -Direction Inbound -Lo
 # Create inbound rule for LSL Data
 New-NetFirewallRule -DisplayName "LSL Data (TCP/UDP-In)" -Direction Inbound -LocalPort 16572-16604 -Protocol TCP -Action Allow
 New-NetFirewallRule -DisplayName "LSL Data (TCP/UDP-In)" -Direction Inbound -LocalPort 16572-16604 -Protocol UDP -Action Allow
+```
+
+---
+
+## ⚙️ Linux Configuration (UFW)
+
+If you use `ufw` (Uncomplicated Firewall) on Linux (e.g., Ubuntu), run the following:
+
+```bash
+# Allow LSL Discovery
+sudo ufw allow 16571/udp
+
+# Allow LSL Data (TCP & UDP)
+sudo ufw allow 16572:16604/tcp
+sudo ufw allow 16572:16604/udp
 ```
 
 ---
