@@ -17,7 +17,24 @@ This guide provides a step-by-step walkthrough for preparing, running, and analy
 
 3.  **Verify Serial Ports**:
     *   **Windows**: Open Device Manager (`devmgmt.msc`) and note the COM ports (e.g., `COM3`, `COM5`).
-    *   **Linux**: Run `ls /dev/ttyUSB*` or `ls /dev/ttyACM*`. Use `sudo dmesg | tail` after plugging in a device to identify it (e.g., `/dev/ttyUSB0`).
+    *   **Linux**: Run `ls /dev/ttyUSB*` or `ls /dev/ttyACM*`. Use `sudo dmesg | tail` after plugging in a device to identify it (e.g., `/dev/ttyUSB0`). Example dmesg output below:
+
+```[456806.703538] usb 3-9: new full-speed USB device number 34 using xhci_hcd
+[456807.099733] usb 3-9: Device not responding to setup address.
+[456807.319957] usb 3-9: New USB device found, idVendor=239a, idProduct=8029, bcdDevice= 1.00
+[456807.319963] usb 3-9: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[456807.319965] usb 3-9: Product: Feather nRF52840 Express
+[456807.319967] usb 3-9: Manufacturer: Adafruit
+[456807.319968] usb 3-9: SerialNumber: 04D80A9201CF428B
+[456807.321751] cdc_acm 3-9:1.0: ttyACM0: USB ACM device
+[456819.944441] usb 3-3: new full-speed USB device number 35 using xhci_hcd
+[456820.070209] usb 3-3: New USB device found, idVendor=0483, idProduct=5740, bcdDevice= 2.00
+[456820.070214] usb 3-3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[456820.070215] usb 3-3: Product: STM32 Virtual ComPort
+[456820.070216] usb 3-3: Manufacturer: STMicroelectronics
+[456820.070217] usb 3-3: SerialNumber: 3966375A3430
+[456820.071711] cdc_acm 3-3:1.0: ttyACM1: USB ACM device
+```
 
 4.  **Configuration**:
     *   Edit `config/hardware/freeeeg.yaml`.
@@ -32,7 +49,7 @@ python -m src.main server -c config/hardware/freeeeg.yaml
 *   **Verify**: Wait for the message `* LSL stream 'BrainFlowEEG' is now active`.
 
 ## 3. Start Real-time Monitor (Visualization Node)
-Run this on the 'EEG Visualization PC' to monitor signal quality.
+Run this on the 'EEG Visualization PC' from the [EEGlslviewer](https://github.com/F2HEAL/EEGlslviewer) repository to monitor signal quality.
 
 ```bash
 python eeg_viewer_main.py
