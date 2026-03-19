@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 RANDOM_SEED: int = 42
 PROGRESS_BAR_LENGTH: int = 30
-EEG_CHANNELS_COUNT: int = 32
 
 def format_time_hms(seconds: float) -> str:
     """Converts seconds into human-readable format."""
@@ -146,9 +145,10 @@ class EEGSweep:
             sys.exit(1)
             
         self.inlet = StreamInlet(streams[0])
+        self.num_channels = self.inlet.info().channel_count()
+        logger.info("✅ Connected to LSL stream with %d channels.", self.num_channels)
         # Drain stale data
         self.inlet.pull_chunk(timeout=0.0)
-        logger.info("✅ Connected to LSL stream.")
 
     def connect_vhp(self) -> None:
         """Connects to the VHP serial device."""
@@ -178,7 +178,7 @@ class EEGSweep:
                     label = str(marker) if (marker is not None and not marker_written) else ""
                     # Ensure sample is a list
                     sample_data = list(sample)
-                    rows.append([ts] + sample_data[:EEG_CHANNELS_COUNT] + [label])
+                    rows.append([ts] + sample_data[:self.num_channels] + [label])
                     marker_written = True
                 
                 writer.writerows(rows)
@@ -191,7 +191,7 @@ class EEGSweep:
         if timestamps:
             for sample, ts in zip(samples, timestamps):
                 label = str(marker) if (marker is not None and not marker_written) else ""
-                writer.writerow([ts] + list(sample)[:EEG_CHANNELS_COUNT] + [label])
+                writer.writerow([ts] + list(sample)[:self.num_channels] + [label])
                 marker_written = True
                 total_samples += 1
 

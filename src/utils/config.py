@@ -53,7 +53,7 @@ class EEGConfig:
 
     @property
     def stream_name(self) -> str:
-        return self.hardware.get("Board", {}).get("StreamName", "SynAmpsRT")
+        return self.hardware.get("Board", {}).get("StreamName", "BrainFlowEEG")
 
     @property
     def serial_port(self) -> Optional[str]:

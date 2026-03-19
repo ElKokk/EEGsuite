@@ -87,12 +87,15 @@ Generate HTML reports and plots from the recorded CSV files.
 ```bash
 # Example: Analyze a specific file from start (0s) to 60s
 python -m src.main analyze -f "data/raw/YOUR_FILE_NAME.csv" -s 0 -d 60
+
+# Example: Analyze with a custom configuration file
+python -m src.main analyze -f "data/raw/YOUR_FILE_NAME.csv" -c config/analysis/my_custom_settings.yaml
 ```
 *   **Result**: Check the `reports/` folder for the generated `.html` analysis file.
-*   **Customization**: Edit `config/analysis/default_offline.yaml` to change channel names, montage, or filter frequencies.
-*   **Montage Switching**: To change electrode layouts (e.g., from 32-channel to 8-channel), change the `montage_profile` in `config/analysis/default_offline.yaml`.
+*   **Customization**: By default, the system uses `config/analysis/default_offline.yaml`. You can edit this file directly or provide a custom one using the `-c` flag. Use it to change:
+    *   Channel names and montage profiles.
+    *   Filter frequencies (highpass, lowpass, notch).
+    *   `pick_channels`: A list to manually override which electrodes appear in the report.
+*   **Montage Switching**: To change electrode layouts (e.g., from 32-channel to 8-channel), change the `montage_profile` in your YAML config.
     *   `kullab`: Standard 32-channel layout.
     *   `freg8`: Sparse 8-channel motor layout.
-*   **Channel Picking**: You can manually override which channels appear in the report by editing the `pick_channels` list in `config/analysis/default_offline.yaml`.
-    *   If `pick_channels` is defined in the main YAML, it takes priority over the montage profile's defaults.
-    *   This affects all plots: Timeseries, Spectrograms, PSD, and ERPs.
