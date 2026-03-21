@@ -37,6 +37,14 @@ The hardware acquisition order for this montage is:
 6.  **Row 6 (Occipital)**: O1, PO9, PO10, O2
 7.  **Row 7 (Inion)**: Iz
 
+## ⚡ Reference & VCM_Bias
+
+| Pin / Input | Function | Location |
+| :--- | :--- | :--- |
+| **REF** | Signal Reference | ? |
+| **VCM/Bias** | VCM / Bias | not applicable |
+
+
 ## 🛠 Integration in EEGsuite
 
 This montage is natively supported in the analysis pipeline. To ensure correct spatial mapping and topographies, the `config/analysis/default_offline.yaml` is pre-configured with these labels.

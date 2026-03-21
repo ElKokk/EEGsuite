@@ -5,6 +5,8 @@
 # ⚡ REFERENCE: M1+M2 (linked)
 # ⚡ GND (VCM/Bias): Fpz or Fz
 name: FREG8
+reference: "linked ears"
+VCM_Bias: "GND, between Fpz and Fz"
 montage: standard_1020
 channels: [
     T7,   # CH1

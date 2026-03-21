@@ -36,12 +36,12 @@ The FreeEEG32 inputs are mapped as follows. Unused channels should be left float
 | **CH14** | CP4 |
 | CH15-32 | *NC* |
 
-## ⚡ Reference & Ground
+## ⚡ Reference & VCM_Bias
 
 | Pin / Input | Function | Location |
 | :--- | :--- | :--- |
-| **REF** | Signal Reference | M1 + M2 (linked) |
-| **GND** | VCM / Bias | Fpz or Fz |
+| **REF** | Signal Reference | linked ears |
+| **VCM/Bias** | VCM / Bias | GND, between Fpz and Fz |
 
 ## 🛠 Usage
 

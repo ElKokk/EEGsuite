@@ -1,5 +1,7 @@
 # KULLAB 32-Channel Montage
 name: KULLAB
+reference: "?"
+VCM_Bias: "NA" #not applicable
 montage: standard_1020
 channels: [
     F7, F3, Fz, F4, F8,
