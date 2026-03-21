@@ -1,0 +1,7 @@
+brainflow==5.19.0
+modules==1.0.0
+numpy==2.3.5
+PyQt5==5.15.11
+pyqt5_sip==12.17.1
+pyqtgraph==0.14.0
+scipy==1.16.3
