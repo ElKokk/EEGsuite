@@ -560,7 +560,7 @@ class TFRContrastAnalyzer:
             mid_st = (stim_min + stim_max) / 2
 
             ax.text(mid_bl, label_y, "BASELINE", color="#3B82F6", **label_kwargs)
-            ax.text(mid_ex, label_y, "EXCL.", color="#EF4444", **label_kwargs)
+            ax.text(mid_ex, label_y, "ONSET", color="#EF4444", **label_kwargs)
             ax.text(mid_st, label_y, "STIMULATION", color="#10B981", **label_kwargs)
             ax.text(0, label_y, "STIM ON", color="#EF4444",
                     fontsize=6, ha="center", va="top", alpha=0.6)
@@ -568,6 +568,15 @@ class TFRContrastAnalyzer:
     # ------------------------------------------------------------------
     # Visualization helpers
     # ------------------------------------------------------------------
+    def _stim_freq_line(self, ax, orientation: str = "horizontal") -> None:
+        """Draw a dashed line at the stimulation frequency on TFR heatmaps."""
+        sf = self.cfg.stim_freq
+        if orientation == "horizontal":
+            ax.axhline(sf, color="#F59E0B", linestyle="--", linewidth=0.9, alpha=0.7)
+            ax.text(ax.get_xlim()[1], sf, f" {sf:.0f} Hz",
+                    fontsize=7, va="center", ha="left", color="#F59E0B",
+                    fontweight="bold", alpha=0.8, clip_on=False)
+
     def plot_tfr(
         self,
         tfr,
@@ -586,48 +595,50 @@ class TFRContrastAnalyzer:
 
         _fmin = fmin or self.cfg.tfr_fmin
         _fmax = fmax or self.cfg.tfr_fmax
-        # Show full epoch so baseline and post-stim are visible
         _tmin = tmin or self.cfg.epoch_tmin + 0.1
         _tmax = tmax or self.cfg.epoch_tmax - 0.1
 
         n_channels = len(tfr.ch_names)
         fig, axes = plt.subplots(
             n_channels, 1,
-            figsize=(14, 3.5 * n_channels),
+            figsize=(14, 3.0 * n_channels),
             squeeze=False,
         )
 
+        # Compute shared vlim if not provided — same scale across all channels
+        if vmin is None or vmax is None:
+            time_mask = (tfr.times >= _tmin) & (tfr.times <= _tmax)
+            freq_mask = (tfr.freqs >= _fmin) & (tfr.freqs <= _fmax)
+            data_slice = tfr.data[:, freq_mask, :][:, :, time_mask]
+            abs_max = np.percentile(np.abs(data_slice), 97)
+            vmin = -abs_max
+            vmax = abs_max
+
         for idx, ch_name in enumerate(tfr.ch_names):
             ax = axes[idx, 0]
-            # Build plot kwargs — vlim replaces vmin/vmax in newer MNE
-            plot_kwargs = dict(
+            tfr.plot(
                 picks=[ch_name],
-                baseline=None,          # already applied
-                tmin=_tmin,
-                tmax=_tmax,
-                fmin=_fmin,
-                fmax=_fmax,
-                axes=ax,
-                show=False,
-                colorbar=True,
-                cmap=cmap,
+                baseline=None,
+                tmin=_tmin, tmax=_tmax,
+                fmin=_fmin, fmax=_fmax,
+                axes=ax, show=False,
+                colorbar=True, cmap=cmap,
+                vlim=(vmin, vmax),
                 verbose=False,
             )
-            if vmin is not None and vmax is not None:
-                plot_kwargs["vlim"] = (vmin, vmax)
-            tfr.plot(**plot_kwargs)
             self._annotate_periods(ax)
-            ax.set_title(f"{title} — {ch_name}")
+            self._stim_freq_line(ax)
+            ax.set_title(f"{title} — {ch_name}", fontsize=10)
 
-        fig.suptitle(title, fontsize=14, fontweight="bold", y=1.01)
+        fig.suptitle(title, fontsize=13, fontweight="bold", y=1.01)
         plt.tight_layout()
         return fig
 
     def plot_contrast(self, **kwargs) -> Optional[plt.Figure]:
-        """Plot the FOT − IFNFN contrast TFR."""
+        """Plot the FOT - IFNFN contrast TFR."""
         return self.plot_tfr(
             self.tfr_contrast,
-            title="Contrast: FOT − IFNFN (Isolated Neural Response)",
+            title="Contrast (FOT - IFNFN)",
             cmap="RdBu_r",
             **kwargs,
         )
@@ -638,16 +649,26 @@ class TFRContrastAnalyzer:
         fmin: Optional[float] = None,
         fmax: Optional[float] = None,
     ) -> Optional[plt.Figure]:
-        """Side-by-side FOT / IFNFN / Contrast for one channel."""
+        """Side-by-side FOT / IFNFN / Contrast for one channel with shared color scale."""
         if self.tfr_fot is None or self.tfr_ifnfn is None or self.tfr_contrast is None:
             return None
 
         ch = channel or self.tfr_fot.ch_names[0]
         _fmin = fmin or self.cfg.tfr_fmin
         _fmax = fmax or self.cfg.tfr_fmax
-        # Show full epoch
         _tmin = self.cfg.epoch_tmin + 0.1
         _tmax = self.cfg.epoch_tmax - 0.1
+
+        # Shared color scale across all three panels
+        ch_idx = self.tfr_fot.ch_names.index(ch)
+        time_mask = (self.tfr_fot.times >= _tmin) & (self.tfr_fot.times <= _tmax)
+        freq_mask = (self.tfr_fot.freqs >= _fmin) & (self.tfr_fot.freqs <= _fmax)
+        all_data = np.concatenate([
+            self.tfr_fot.data[ch_idx, freq_mask, :][:, time_mask].ravel(),
+            self.tfr_ifnfn.data[ch_idx, freq_mask, :][:, time_mask].ravel(),
+            self.tfr_contrast.data[ch_idx, freq_mask, :][:, time_mask].ravel(),
+        ])
+        abs_max = np.percentile(np.abs(all_data), 97)
 
         fig, axes = plt.subplots(1, 3, figsize=(22, 5))
 
@@ -657,24 +678,19 @@ class TFRContrastAnalyzer:
             ["FOT (Tactile + EM)", "IFNFN (EM only)", "Contrast (FOT - IFNFN)"],
         ):
             tfr.plot(
-                picks=[ch],
-                baseline=None,
-                tmin=_tmin,
-                tmax=_tmax,
-                fmin=_fmin,
-                fmax=_fmax,
-                axes=ax,
-                show=False,
-                colorbar=True,
-                cmap="RdBu_r",
+                picks=[ch], baseline=None,
+                tmin=_tmin, tmax=_tmax,
+                fmin=_fmin, fmax=_fmax,
+                axes=ax, show=False,
+                colorbar=True, cmap="RdBu_r",
+                vlim=(-abs_max, abs_max),
                 verbose=False,
             )
             self._annotate_periods(ax)
-            ax.set_title(label)
+            self._stim_freq_line(ax)
+            ax.set_title(label, fontsize=10)
 
-        fig.suptitle(
-            f"TFR Condition Comparison — {ch}", fontsize=13, fontweight="bold"
-        )
+        fig.suptitle(f"{ch}", fontsize=13, fontweight="bold")
         plt.tight_layout()
         return fig
 
@@ -685,8 +701,7 @@ class TFRContrastAnalyzer:
     ) -> Optional[plt.Figure]:
         """
         Plot the time-course of power in a specific frequency band
-        for both conditions + contrast.  Useful for seeing the stimulation
-        frequency response (e.g. ~22 Hz) evolve over time.
+        for both conditions + contrast.
         """
         if self.tfr_fot is None or self.tfr_ifnfn is None:
             return None
@@ -695,45 +710,45 @@ class TFRContrastAnalyzer:
         ch_idx_fot = self.tfr_fot.ch_names.index(ch)
         ch_idx_ifnfn = self.tfr_ifnfn.ch_names.index(ch)
 
-        # Frequency indices
         freqs = self.tfr_fot.freqs
         freq_mask = (freqs >= freq_band[0]) & (freqs <= freq_band[1])
 
-        # Extract and average across the frequency band
         fot_data = self.tfr_fot.data[ch_idx_fot, freq_mask, :].mean(axis=0)
         ifnfn_data = self.tfr_ifnfn.data[ch_idx_ifnfn, freq_mask, :].mean(axis=0)
         contrast_data = fot_data - ifnfn_data
         times = self.tfr_fot.times
 
-        fig, axes = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
+        fig, axes = plt.subplots(2, 1, figsize=(14, 7), sharex=True)
 
         # Top: both conditions
-        axes[0].plot(times, fot_data, color="#2ecc71", label="FOT", linewidth=1.5)
-        axes[0].plot(times, ifnfn_data, color="#e74c3c", label="IFNFN", linewidth=1.5)
+        axes[0].plot(times, fot_data, color="#2563EB", label="FOT", linewidth=1.5)
+        axes[0].plot(times, ifnfn_data, color="#DC2626", label="IFNFN",
+                     linewidth=1.5, alpha=0.8)
         axes[0].axhline(0, color="gray", linestyle=":", alpha=0.3)
         axes[0].set_ylabel(f"Power ({self.cfg.baseline_mode})")
         axes[0].set_title(
-            f"{ch} — {freq_band[0]:.0f}-{freq_band[1]:.0f} Hz Band Power"
+            f"{ch} — {freq_band[0]:.0f}\u2013{freq_band[1]:.0f} Hz",
+            fontsize=11,
         )
-        axes[0].legend()
-        axes[0].grid(True, alpha=0.2)
+        axes[0].legend(framealpha=0.9, fontsize=9)
+        axes[0].grid(True, alpha=0.15)
         self._annotate_periods(axes[0])
 
         # Bottom: contrast
-        axes[1].plot(times, contrast_data, color="#3498db", linewidth=2)
+        axes[1].plot(times, contrast_data, color="#1E293B", linewidth=1.8)
         axes[1].fill_between(
             times, contrast_data, 0,
-            where=contrast_data > 0, color="#3498db", alpha=0.15,
+            where=contrast_data > 0, color="#2563EB", alpha=0.15,
         )
         axes[1].fill_between(
             times, contrast_data, 0,
-            where=contrast_data < 0, color="#e74c3c", alpha=0.15,
+            where=contrast_data < 0, color="#DC2626", alpha=0.15,
         )
         axes[1].axhline(0, color="gray", linestyle=":", alpha=0.5)
         axes[1].set_xlabel("Time (s)")
-        axes[1].set_ylabel(f"Delta Power ({self.cfg.baseline_mode})")
-        axes[1].set_title("Contrast (FOT - IFNFN): Isolated Neural Response")
-        axes[1].grid(True, alpha=0.2)
+        axes[1].set_ylabel(f"Contrast ({self.cfg.baseline_mode})")
+        axes[1].set_title("FOT \u2212 IFNFN", fontsize=10)
+        axes[1].grid(True, alpha=0.15)
         self._annotate_periods(axes[1])
 
         plt.tight_layout()
@@ -758,6 +773,8 @@ class TFRContrastAnalyzer:
                 png/                        (standalone high-res PNGs)
                 csv/                        (TFR data as CSV)
         """
+        from datetime import datetime
+
         out = Path(output_dir or self.cfg.output_dir)
         out.mkdir(parents=True, exist_ok=True)
         img_dir = out / "img"
@@ -767,135 +784,120 @@ class TFRContrastAnalyzer:
         csv_dir = out / "csv"
         csv_dir.mkdir(parents=True, exist_ok=True)
 
-        sections: List[str] = []
         plot_counter = 0
 
         def _save_fig(fig, name: str, dpi_html: int = 120, dpi_png: int = 200):
-            """Save figure to both img/ (for HTML) and png/ (standalone)."""
             nonlocal plot_counter
             plot_counter += 1
-            # Sanitize name for filesystem
             safe = name.replace(" ", "_").replace("/", "-").replace(":", "")
             safe = f"{plot_counter:02d}_{safe}"
-
-            # HTML-embedded version (smaller)
             html_path = img_dir / f"{safe}.png"
             fig.savefig(html_path, bbox_inches="tight", dpi=dpi_html)
-
-            # Standalone high-res version
             png_path = png_dir / f"{safe}.png"
             fig.savefig(png_path, bbox_inches="tight", dpi=dpi_png)
-
             plt.close(fig)
             return f"img/{safe}.png"
 
-        def _add(title: str, fig=None, text: str = "", caption: str = "",
-                 fig_name: str = ""):
-            block = f"<div class='section'><h2>{html.escape(title)}</h2>"
-            if text:
-                block += f"<p>{html.escape(text)}</p>"
-            if fig is not None:
-                rel_path = _save_fig(fig, fig_name or title)
-                block += f'<img src="{rel_path}" class="plot">'
-                if caption:
-                    block += f'<p class="caption">{html.escape(caption)}</p>'
-            block += "</div>"
-            sections.append(block)
+        def _fig_block(fig, name: str, caption: str = "") -> str:
+            rel = _save_fig(fig, name)
+            s = f'<img src="{rel}" class="plot" alt="{html.escape(name)}">'
+            if caption:
+                s += f'<p class="caption">{html.escape(caption)}</p>'
+            return s
 
         # --- Export TFR data as CSV ---
         self._export_csv(csv_dir)
 
-        # --- Pipeline info ---
-        info_text = (
-            f"Baseline mode: {self.cfg.baseline_mode} | "
-            f"Baseline window: [{self.cfg.baseline_tmin}, {self.cfg.baseline_tmax}]s | "
-            f"Stim window: [{self.cfg.stim_window_tmin}, {self.cfg.stim_window_tmax}]s | "
-            f"Frequencies: {self.cfg.tfr_fmin} - {self.cfg.tfr_fmax} Hz"
-        )
-        n_fot = "N/A"
-        n_ifnfn = "N/A"
-        if self.tfr_fot is not None:
-            n_fot = str(getattr(self.tfr_fot, 'nave', '?'))
-        if self.tfr_ifnfn is not None:
-            n_ifnfn = str(getattr(self.tfr_ifnfn, 'nave', '?'))
-        info_text += f" | FOT trials: {n_fot} | IFNFN trials: {n_ifnfn}"
-        _add("Pipeline Configuration", text=info_text)
+        # --- Collect data for the report ---
+        n_fot = str(getattr(self.tfr_fot, 'nave', '?')) if self.tfr_fot else "N/A"
+        n_ifnfn = str(getattr(self.tfr_ifnfn, 'nave', '?')) if self.tfr_ifnfn else "N/A"
+        ch_names = self.tfr_fot.ch_names if self.tfr_fot else []
+        n_ch = len(ch_names)
 
-        # --- Individual condition TFRs ---
-        if self.tfr_fot is not None:
-            fig = self.plot_tfr(self.tfr_fot, title="FOT (Tactile + EM Noise)")
-            _add(
-                "Step 1-3: FOT Condition TFR",
-                fig=fig,
-                fig_name="TFR_FOT",
-                caption="Morlet TFR, baseline-normalized. Contains both neural response and EM artifact.",
-            )
-        if self.tfr_ifnfn is not None:
-            fig = self.plot_tfr(self.tfr_ifnfn, title="IFNFN (EM Noise Only)")
-            _add(
-                "Step 1-3: IFNFN Condition TFR",
-                fig=fig,
-                fig_name="TFR_IFNFN",
-                caption="Control condition - same EM noise, no tactile stimulation.",
-            )
-
-        # --- Contrast ---
-        if self.tfr_contrast is not None:
-            fig = self.plot_contrast()
-            _add(
-                "Step 4: Contrast (FOT - IFNFN)",
-                fig=fig,
-                fig_name="TFR_Contrast",
-                caption="Isolated neural response: EM noise cancelled by subtraction.",
-            )
-
-            # Side-by-side per channel
-            for ch in (self.tfr_fot.ch_names if self.tfr_fot else []):
-                fig_comp = self.plot_both_conditions(channel=ch)
-                if fig_comp:
-                    _add(
-                        f"Condition Comparison - {ch}",
-                        fig=fig_comp,
-                        fig_name=f"Comparison_{ch}",
-                        caption=f"Left: FOT | Center: IFNFN | Right: Contrast for {ch}",
-                    )
-
-            # Band time-courses for stimulation-relevant frequencies
-            for band_name, band_range in [
-                ("Beta_13-30Hz", (13.0, 30.0)),
-                ("StimFreq_20-25Hz", (20.0, 25.0)),
-                ("Gamma_30-45Hz", (30.0, 45.0)),
-            ]:
-                for ch in (self.tfr_fot.ch_names if self.tfr_fot else []):
-                    fig_tc = self.plot_stim_band_timecourse(
-                        freq_band=band_range, channel=ch
-                    )
-                    if fig_tc:
-                        _add(
-                            f"Band Time-Course: {band_name} - {ch}",
-                            fig=fig_tc,
-                            fig_name=f"Band_{band_name}_{ch}",
-                            caption=(
-                                f"Top: FOT vs IFNFN power in {band_name}. "
-                                f"Bottom: difference = isolated neural modulation."
-                            ),
-                        )
-
-        # --- Channel Response Summary ---
+        # --- Section 1: Channel summary (computed first, shown first) ---
+        summary_section = ""
         if self.tfr_contrast is not None:
             summary_df = self.compute_channel_summary(stim_freq=self.cfg.stim_freq)
             if summary_df is not None:
-                summary_html = self._build_summary_html(
+                summary_section = self._build_summary_html(
                     summary_df, stim_freq=self.cfg.stim_freq
                 )
-                sections.append(summary_html)
-
-                # Also export summary as CSV
                 summary_csv_path = csv_dir / "channel_summary.csv"
                 summary_df.to_csv(summary_csv_path, index=False)
                 logger.info("Exported %s", summary_csv_path.name)
 
-        # --- Assemble HTML with proper encoding ---
+        # --- Section 2: Overview TFR plots ---
+        overview_plots = ""
+        if self.tfr_fot is not None:
+            fig = self.plot_tfr(self.tfr_fot, title="FOT (Tactile + EM Noise)")
+            overview_plots += (
+                '<div class="subsection">'
+                '<h3>FOT Condition (Finger On Tactor)</h3>'
+                '<p class="caption">Contains both the neural response and EM artifact from the vibration motor.</p>'
+                + _fig_block(fig, "TFR_FOT") + '</div>'
+            )
+        if self.tfr_ifnfn is not None:
+            fig = self.plot_tfr(self.tfr_ifnfn, title="IFNFN (EM Noise Only)")
+            overview_plots += (
+                '<div class="subsection">'
+                '<h3>IFNFN Condition (In-Field Not-Feeling Nipple)</h3>'
+                '<p class="caption">Control: same EM noise, no tactile contact. Serves as the artifact template.</p>'
+                + _fig_block(fig, "TFR_IFNFN") + '</div>'
+            )
+        if self.tfr_contrast is not None:
+            fig = self.plot_contrast()
+            overview_plots += (
+                '<div class="subsection">'
+                '<h3>Contrast (FOT &minus; IFNFN)</h3>'
+                '<p class="caption">Isolated neural response after EM artifact subtraction.</p>'
+                + _fig_block(fig, "TFR_Contrast") + '</div>'
+            )
+
+        # --- Section 3: Per-channel comparisons (collapsible) ---
+        comparison_plots = ""
+        if self.tfr_contrast is not None:
+            for ch in ch_names:
+                fig_comp = self.plot_both_conditions(channel=ch)
+                if fig_comp:
+                    comparison_plots += (
+                        f'<details><summary><strong>{ch}</strong></summary>'
+                        + _fig_block(fig_comp, f"Comparison_{ch}",
+                                     f"Left: FOT | Center: IFNFN | Right: Contrast")
+                        + '</details>'
+                    )
+
+        # --- Section 4: Band time-courses (collapsible, grouped by band) ---
+        band_plots = ""
+        if self.tfr_contrast is not None:
+            bands = [
+                ("Stim Frequency (20&ndash;25 Hz)", "StimFreq_20-25Hz", (20.0, 25.0)),
+                ("Beta (13&ndash;30 Hz)", "Beta_13-30Hz", (13.0, 30.0)),
+                ("Gamma (30&ndash;45 Hz)", "Gamma_30-45Hz", (30.0, 45.0)),
+            ]
+            for band_label, band_id, band_range in bands:
+                inner = ""
+                for ch in ch_names:
+                    fig_tc = self.plot_stim_band_timecourse(
+                        freq_band=band_range, channel=ch
+                    )
+                    if fig_tc:
+                        inner += (
+                            f'<details><summary>{ch}</summary>'
+                            + _fig_block(fig_tc, f"Band_{band_id}_{ch}",
+                                         "Top: FOT vs IFNFN band power. "
+                                         "Bottom: contrast (isolated neural modulation).")
+                            + '</details>'
+                        )
+                if inner:
+                    band_plots += (
+                        f'<details><summary><strong>{band_label}</strong></summary>'
+                        f'{inner}</details>'
+                    )
+
+        # --- Assemble HTML ---
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        n_csv = len(list(csv_dir.glob("*.csv")))
+
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -903,40 +905,206 @@ class TFRContrastAnalyzer:
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TFR Contrast Report</title>
 <style>
-body {{ font-family: 'Segoe UI', sans-serif; margin: 40px; background: #f5f5f5; }}
-.container {{ max-width: 1400px; margin: auto; background: white;
-              padding: 30px; border-radius: 8px;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
-h1 {{ color: #2c3e50; border-bottom: 2px solid #2ecc71; padding-bottom: 10px; }}
-h2 {{ color: #27ae60; margin-top: 30px; }}
-.section {{ margin: 25px 0; }}
-.plot {{ max-width: 100%; height: auto; margin: 20px 0; border: 1px solid #ddd; border-radius: 4px; }}
-.caption {{ font-style: italic; color: #7f8c8d; text-align: center; margin-bottom: 20px; }}
-.info {{ background: #f8f9fa; padding: 15px; border-left: 4px solid #2ecc71;
-         border-radius: 4px; margin: 15px 0; font-size: 0.9em; }}
-.footer {{ margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee;
-           color: #bbb; font-size: 0.8em; text-align: center; }}
-table tbody tr {{ border-bottom: 1px solid #eee; }}
-table tbody tr:nth-child(even) {{ background: #f9fafb; }}
-table tbody tr:hover {{ background: #f0f9ff; }}
+:root {{
+    --c-text: #1E293B;
+    --c-muted: #64748B;
+    --c-accent: #2563EB;
+    --c-border: #E2E8F0;
+    --c-bg: #F8FAFC;
+    --c-card: #FFFFFF;
+}}
+* {{ box-sizing: border-box; }}
+body {{
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    margin: 0; padding: 40px;
+    background: var(--c-bg); color: var(--c-text);
+    line-height: 1.6; font-size: 15px;
+}}
+.container {{
+    max-width: 1400px; margin: 0 auto;
+    background: var(--c-card); padding: 40px 48px;
+    border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}}
+/* --- Typography --- */
+h1 {{
+    font-size: 1.6em; font-weight: 700; color: var(--c-text);
+    border-bottom: 2px solid var(--c-accent); padding-bottom: 12px;
+    margin-bottom: 8px;
+}}
+h1 .subtitle {{ font-size: 0.55em; font-weight: 400; color: var(--c-muted); display: block; margin-top: 4px; }}
+h2 {{
+    font-size: 1.2em; font-weight: 600; color: var(--c-text);
+    margin: 36px 0 12px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--c-border);
+}}
+h2 .sec-num {{ color: var(--c-accent); margin-right: 6px; }}
+h3 {{ font-size: 1.0em; color: var(--c-muted); margin: 20px 0 8px; }}
+/* --- Layout --- */
+.section {{ margin: 32px 0; }}
+.subsection {{ margin: 20px 0; }}
+.plot {{
+    max-width: 100%; height: auto; margin: 16px 0;
+    border: 1px solid var(--c-border); border-radius: 4px;
+}}
+.caption {{
+    font-size: 0.85em; color: var(--c-muted);
+    text-align: center; margin: 4px 0 20px;
+}}
+/* --- Info boxes --- */
+.info-box {{
+    padding: 14px 18px; border-radius: 6px; margin: 16px 0;
+    font-size: 0.9em; line-height: 1.5;
+}}
+.info-box.neutral {{ background: #F8FAFC; border-left: 4px solid #94A3B8; }}
+.info-box.method  {{ background: #F8FAFC; border-left: 4px solid var(--c-accent); }}
+/* --- Parameters table --- */
+.params-table {{
+    border-collapse: collapse; font-size: 0.88em; margin: 12px 0;
+}}
+.params-table td {{
+    padding: 5px 16px 5px 0; border: none; vertical-align: top;
+}}
+.params-table td:first-child {{
+    font-weight: 600; color: var(--c-muted); white-space: nowrap;
+}}
+/* --- Collapsible sections --- */
+details {{
+    margin: 6px 0; border: 1px solid var(--c-border);
+    border-radius: 4px; overflow: hidden;
+}}
+details > summary {{
+    padding: 10px 16px; cursor: pointer;
+    background: #F8FAFC; font-size: 0.92em;
+    list-style: none;
+}}
+details > summary::-webkit-details-marker {{ display: none; }}
+details > summary::before {{
+    content: "\\25B6\\FE0E"; display: inline-block; margin-right: 8px;
+    font-size: 0.75em; transition: transform 0.15s;
+}}
+details[open] > summary::before {{ transform: rotate(90deg); }}
+details[open] > summary {{ border-bottom: 1px solid var(--c-border); }}
+details > :not(summary) {{ padding: 12px 16px; }}
+/* --- Data table --- */
+table {{ border-collapse: collapse; }}
+table tbody tr {{ border-bottom: 1px solid #F1F5F9; }}
+table tbody tr:nth-child(even) {{ background: #F8FAFC; }}
+table tbody tr:hover {{ background: #EFF6FF; }}
 table th, table td {{ padding: 8px 10px; }}
+/* --- Navigation --- */
+.toc {{
+    background: #F8FAFC; border: 1px solid var(--c-border);
+    border-radius: 6px; padding: 16px 24px; margin: 20px 0;
+    font-size: 0.9em; columns: 2; column-gap: 32px;
+}}
+.toc a {{ color: var(--c-accent); text-decoration: none; }}
+.toc a:hover {{ text-decoration: underline; }}
+.toc li {{ margin: 3px 0; break-inside: avoid; }}
+/* --- Footer --- */
+.footer {{
+    margin-top: 40px; padding-top: 16px;
+    border-top: 1px solid var(--c-border);
+    color: var(--c-muted); font-size: 0.8em; text-align: center;
+}}
 </style>
 </head>
 <body>
 <div class="container">
-<h1>TFR Contrast Analysis &mdash; Section 9 Pipeline</h1>
-<p><em>FOT &minus; IFNFN contrast isolates the neural response to tactile stimulation
-under strong electromagnetic noise.</em></p>
-<div class="info">
-Output directories: <code>png/</code> (standalone high-res plots) |
-<code>csv/</code> (TFR numerical data) |
-<code>img/</code> (report images)
+
+<h1>
+    TFR Contrast Analysis
+    <span class="subtitle">
+        FOT &minus; IFNFN condition subtraction
+        &nbsp;|&nbsp; Generated {timestamp}
+    </span>
+</h1>
+
+<nav class="toc">
+<strong>Contents</strong>
+<ol>
+<li><a href="#summary">Channel Response Summary</a></li>
+<li><a href="#methods">Methods &amp; Parameters</a></li>
+<li><a href="#overview">TFR Overview (FOT, IFNFN, Contrast)</a></li>
+<li><a href="#comparisons">Per-Channel Condition Comparisons</a></li>
+<li><a href="#timecourses">Band Time-Courses</a></li>
+<li><a href="#exports">Data Exports</a></li>
+</ol>
+</nav>
+
+<!-- ============================================================ -->
+<div class="section" id="summary">
+<h2><span class="sec-num">1.</span> Channel Response Summary</h2>
+{summary_section}
 </div>
-{"".join(sections)}
+
+<!-- ============================================================ -->
+<div class="section" id="methods">
+<h2><span class="sec-num">2.</span> Methods &amp; Parameters</h2>
+<div class="info-box method">
+    <strong>Pipeline:</strong> Morlet wavelet TFR computed per epoch, then
+    baseline-normalized and averaged across trials. The contrast
+    (FOT&nbsp;&minus;&nbsp;IFNFN) subtracts the EM artifact common to both
+    conditions, isolating the neural component.
+</div>
+<table class="params-table">
+    <tr><td>Montage</td><td>{html.escape(self.cfg.montage_profile)} &mdash;
+        {n_ch} channels: {', '.join(ch_names)}</td></tr>
+    <tr><td>TFR method</td><td>Morlet wavelets, {self.cfg.tfr_fmin}&ndash;{self.cfg.tfr_fmax} Hz
+        (step {self.cfg.tfr_fstep} Hz), cycles: {self.cfg.n_cycles_mode}</td></tr>
+    <tr><td>Baseline normalization</td><td>{self.cfg.baseline_mode},
+        window [{self.cfg.baseline_tmin}, {self.cfg.baseline_tmax}]&nbsp;s</td></tr>
+    <tr><td>Stimulation window</td><td>[{self.cfg.stim_window_tmin}, {self.cfg.stim_window_tmax}]&nbsp;s
+        (relative to stim onset)</td></tr>
+    <tr><td>Epoch window</td><td>[{self.cfg.epoch_tmin}, {self.cfg.epoch_tmax}]&nbsp;s</td></tr>
+    <tr><td>Filtering</td><td>Band-pass {self.cfg.fmin}&ndash;{self.cfg.fmax} Hz,
+        notch {self.cfg.notch_freqs}</td></tr>
+    <tr><td>Trials</td><td>FOT: {n_fot} &nbsp;|&nbsp; IFNFN: {n_ifnfn}</td></tr>
+    <tr><td>Stim frequency</td><td>{self.cfg.stim_freq} Hz</td></tr>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<div class="section" id="overview">
+<h2><span class="sec-num">3.</span> TFR Overview</h2>
+<p>Full time&ndash;frequency representations for each condition and their contrast.
+Each subplot shows one channel; time is relative to stimulation onset (t&nbsp;=&nbsp;0).</p>
+{overview_plots}
+</div>
+
+<!-- ============================================================ -->
+<div class="section" id="comparisons">
+<h2><span class="sec-num">4.</span> Per-Channel Condition Comparisons</h2>
+<p>Side-by-side FOT, IFNFN, and Contrast TFR for each channel. Click to expand.</p>
+{comparison_plots}
+</div>
+
+<!-- ============================================================ -->
+<div class="section" id="timecourses">
+<h2><span class="sec-num">5.</span> Band Time-Courses</h2>
+<p>Power averaged within frequency bands, plotted over time for each channel.
+Top panel: both conditions; bottom panel: contrast (isolated neural modulation).
+Click a band to expand, then click a channel.</p>
+{band_plots}
+</div>
+
+<!-- ============================================================ -->
+<div class="section" id="exports">
+<h2><span class="sec-num">6.</span> Data Exports</h2>
+<div class="info-box neutral">
+    <strong>{n_csv}</strong> CSV files exported to <code>csv/</code>
+    &nbsp;|&nbsp; <strong>{plot_counter}</strong> high-resolution PNGs in <code>png/</code>
+    <br>
+    Includes per-channel full TFR matrices (frequency &times; time),
+    stim-window averages (channel &times; frequency), and the channel summary table.
+</div>
+</div>
+
 <div class="footer">
-Generated by EEGsuite tfr_contrast.py | {plot_counter} plots |
-{len(list(csv_dir.glob('*.csv')))} CSV files exported
+    EEGsuite &mdash; TFR Contrast Analysis &nbsp;|&nbsp;
+    {plot_counter} plots, {n_csv} CSV files &nbsp;|&nbsp;
+    {timestamp}
 </div>
+
 </div>
 </body>
 </html>"""
