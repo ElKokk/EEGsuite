@@ -114,36 +114,21 @@ def main():
         )
         logger.info("Analysis complete. Report: %s", report_path)
     elif args.command == "analyze_contrast":
-        fot_path = args.fot
-        ifnfn_path = args.ifnfn
-
-        logger.info(f"Starting contrast analysis for {fot_path} vs {ifnfn_path}")
+        logger.info("Starting contrast analysis for %s vs %s", args.fot, args.ifnfn)
         from src.analysis.offline.tfr_contrast import TFRContrastAnalyzer, TFRContrastConfig
 
-        output_dir = Path("test_output")
-        output_dir.mkdir(exist_ok=True)
+        # Build config from YAML if provided, otherwise use defaults
+        if args.config and args.config.exists():
+            from src.utils.config import load_yaml
+            cfg = TFRContrastConfig.from_yaml(load_yaml(args.config))
+        else:
+            cfg = TFRContrastConfig()
 
-        cfg = TFRContrastConfig(
-            # Use wider freq range to see the full picture
-            tfr_fmin=5.0,
-            tfr_fmax=45.0,
-            tfr_fstep=1.0,
-            # Speed up for testing
-            tfr_decim=2,
-            # Protocol-matching windows
-            epoch_tmin=-1.5,
-            epoch_tmax=5.0,
-            baseline_tmin=-1.0,
-            baseline_tmax=-0.5,
-            stim_window_tmin=0.5,
-            stim_window_tmax=4.0,
-            baseline_mode="logratio",
-            # Output
-            output_dir=str(output_dir / "report"),
-        )
+        output_dir = args.output
+        cfg.output_dir = str(output_dir)
 
         analyzer = TFRContrastAnalyzer(cfg)
-        analyzer.load_two_files(fot_path, ifnfn_path)
+        analyzer.load_two_files(args.fot, args.ifnfn)
 
         logger.info("Running 4-step pipeline...")
         success = analyzer.run_pipeline()
@@ -154,16 +139,13 @@ def main():
 
         invalid = analyzer.validate()
         if invalid:
-            logger.error(f"❌ Validation Failed: {invalid}")
+            logger.error("❌ Validation failed: %s", invalid)
             sys.exit(2)
         else:
             logger.info("✅ Analyzer data validated")
 
-        report_path = analyzer.generate_report(
-            output_dir=output_dir / "report",
-            filename="mock_contrast_report.html",
-        )
-        print(f"  ✅ Report: {report_path}")
+        report_path = analyzer.generate_report(output_dir=output_dir)
+        print(f"✅ Report: {report_path}")
 
 
 
