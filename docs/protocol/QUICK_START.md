@@ -10,10 +10,17 @@ This guide provides a step-by-step walkthrough for preparing, running, and analy
     *   **File Explorer**: Open your data synchronization folder (e.g., `G:/My Drive/SharedData/` or a local equivalent).
 
 2.  **Hardware Connection**:
-    *   Connect the **FreeEEG32** board to the 'EEG Acquisition PC' (LSL StreamOutlet Server).
-    *   Connect the **VHP Stimulator** (VBS) to the 'Control PC' (Master: Sweep control, EEG, and event recording).
-    *   Set up the **EEG Visualization PC** (Real-time Monitor) to receive and display EEG data for signal quality assessment.
-    *   *Note: These roles can be performed by the same PC or separate machines on the same local network.*
+
+    *   **2.1 VHP Stimulator (VBS)**
+        *   Connect the **VHP Stimulator** to the 'Control PC' (Master). This PC manages sweep control, EEG, and event recording.
+        *   **Optional VBS WebUI**: Monitor the Vibrotactile Haptics Platform (files in `vbs/webui/`).
+            *   **v2.3**: [Launch v2.3](https://test.heal2.day/webui23/f2heal_webui.html)
+            *   **v2.4**: [Launch v2.4](https://test.heal2.day/webui24/f2heal_webui.html)
+
+    *   **2.2 FreeEEG32**
+        *   Connect the **FreeEEG32** board to the 'EEG Acquisition PC' (LSL StreamOutlet Server).
+        *   Set up the **EEG Visualization PC** (Real-time Monitor) to receive and display EEG data for signal quality assessment.
+        *   *Note: These roles (Control, Acquisition, Visualization) can be performed by the same PC or separate machines on the same local network.*
 
 3.  **Verify Serial Ports**:
     *   **Windows**: Open Device Manager (`devmgmt.msc`) and note the COM ports (e.g., `COM3`, `COM5`).
