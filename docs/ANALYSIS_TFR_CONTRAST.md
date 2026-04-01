@@ -87,7 +87,8 @@ The pipeline parameters are managed via a dataclass and can be overridden by a Y
 ## 📈 Outputs
 
 The module generates a comprehensive **HTML Report** containing:
+*   **Channel Response Summary**: Numerical detection of **SSSEP** (Steady-State Somatosensory Evoked Potentials) and **Beta ERD** (Event-Related Desynchronization) with Cohen's *d* effect sizes.
 *   **TFR Heatmaps**: 2D plots of Power vs. Frequency vs. Time for FOT, IFNFN, and the Contrast.
-*   **Condition Comparisons**: Side-by-side visualizations of the raw and processed states.
-*   **Band Time-courses**: Linear plots showing how specific frequency bands (e.g., Beta) evolve during the trial.
-*   **Signal Quality Metrics**: Checks for dropped samples or excessive noise.
+*   **Condition Comparisons**: Side-by-side visualizations of the raw and processed states for every channel.
+*   **Band Time-courses**: Linear plots showing how specific frequency bands (Stim Freq, Beta, Gamma) evolve during the trial.
+*   **EM Cancellation Metrics**: Estimation of how much electromagnetic artifact was removed during subtraction.
