@@ -18,6 +18,7 @@ The suite consists of three primary layers:
 
 For specific electrode placement used in the KULLAB measurements, see the [KULLAB 32 Montage Documentation](MONTAGE_KULLAB.md).
 For the 8-channel motor cortex montage, see the [FREG8 Montage Documentation](MONTAGE_FREG8.md).
+For the 9-channel FREG9 montage, see the [FREG9 Montage Documentation](MONTAGE_FREG9.md).
 
 The hardware setup is designed for maximum signal purity and participant safety:
 
