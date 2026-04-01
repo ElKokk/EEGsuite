@@ -50,6 +50,7 @@ For detailed instructions on preparing the hardware, starting the LSL stream, an
     *   `streaming/`: BrainFlow/LSL implementation.
     *   `recording/`: Sweep protocol implementation.
     *   `analysis/`: Data processing tools.
+        *   **Time–Frequency Contrast Pipeline**: See the [TFR Contrast Analysis Manual](ANALYSIS_TFR_CONTRAST.md).
     *   `vbs/`: Hardware-specific resources.
         *   `firmware/`: VHP device source code (Main & Experimental).
             *   See [Firmware Technical Docs](../vbs/firmware/README.md#technical-documentation) for hardware-level sensing and timing guides.
