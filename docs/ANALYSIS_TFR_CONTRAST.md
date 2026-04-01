@@ -80,7 +80,7 @@ The pipeline parameters are managed via a dataclass and can be overridden by a Y
 *   **Frequencies**: Range (e.g., 5–100 Hz) and number of steps.
 *   **Time Window**: Pre-stimulus and post-stimulus margins.
 *   **Normalization**: Mode (dB, percent, etc.) and baseline window.
-*   **Montage**: Supports standard 10–20 layouts (defaulting to `freg8`).
+*   **Montage**: Supports standard 10–20 layouts (defaulting to `freg9`).
 
 ---
 
