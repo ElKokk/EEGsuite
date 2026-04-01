@@ -123,7 +123,7 @@ class TFRContrastConfig:
     baseline_mode: str = "logratio"    # "logratio", "ratio", "percent", "zscore"
 
     # --- Stimulation frequency (for summary analysis) ---
-    stim_freq: float = 22.0            # Hz — must match your VHP protocol
+    stim_freq: float = 42.0            # Hz — must match your VHP protocol
 
     # --- Filtering ---
     fmin: float = 0.5
@@ -869,8 +869,12 @@ class TFRContrastAnalyzer:
         # --- Section 4: Band time-courses (collapsible, grouped by band) ---
         band_plots = ""
         if self.tfr_contrast is not None:
+            stim_low = self.cfg.stim_freq - 5.0
+            stim_high = self.cfg.stim_freq + 5.0
             bands = [
-                ("Stim Frequency (20&ndash;25 Hz)", "StimFreq_20-25Hz", (20.0, 25.0)),
+                (f"Stim Frequency ({stim_low:.1f}&ndash;{stim_high:.1f} Hz)",
+                 f"StimFreq_{self.cfg.stim_freq}Hz",
+                 (stim_low, stim_high)),
                 ("Beta (13&ndash;30 Hz)", "Beta_13-30Hz", (13.0, 30.0)),
                 ("Gamma (30&ndash;45 Hz)", "Gamma_30-45Hz", (30.0, 45.0)),
             ]
@@ -1179,7 +1183,7 @@ Click a band to expand, then click a channel.</p>
 
     def compute_channel_summary(
         self,
-        stim_freq: float = 22.0,
+        stim_freq: float = 42.0,
         freq_tolerance: float = 2.0,
         neural_channels: Optional[List[str]] = None,
     ) -> Optional[pd.DataFrame]:
@@ -1326,7 +1330,7 @@ Click a band to expand, then click a channel.</p>
     def _build_summary_html(
         self,
         summary_df: pd.DataFrame,
-        stim_freq: float = 22.0,
+        stim_freq: float = 42.0,
     ) -> str:
         """
         Render the channel summary DataFrame as a styled HTML section
@@ -1674,7 +1678,7 @@ def main():
     )
     parser.add_argument(
         "--stim-freq", type=float, default=None,
-        help="Stimulation frequency in Hz for summary analysis (default: 22.0)",
+        help="Stimulation frequency in Hz for summary analysis (default: 42.0)",
     )
     parser.add_argument(
         "--montage", type=Path, default=None,

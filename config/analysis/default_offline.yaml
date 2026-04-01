@@ -2,13 +2,14 @@
 # ---------------------------
 
 # Active Montage Profile
-# Options: "kullab", "freg8", or path to custom YAML
-montage_profile: freg8
+# Options: "kullab", "freg8", "freg9" or path to custom YAML
+montage_profile: freg9
 
 # Filtering settings
 fmin: 1.5
 fmax: 100.0
 notch_freqs: [50, 100]
+stim_freq: 42.0
 
 # Visualization defaults
 default_start_time: 0.0
