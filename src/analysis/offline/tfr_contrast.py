@@ -101,6 +101,7 @@ class TFRContrastConfig:
     pick_channels: Optional[List[str]] = field(default_factory=lambda: [
         "T7", "C3", "T8", "FC4", "FC3", "C4", "CP3", "CP4"
     ])
+    virtual_channels: Optional[Dict[str, Any]] = None
 
     # --- TFR parameters ---
     tfr_method: str = "morlet"
@@ -175,6 +176,8 @@ class TFRContrastConfig:
                 self.montage = m["montage"]
             if "name" in m:
                 self.montage_profile = m["name"]
+            if "virtual_channels" in m:
+                self.virtual_channels = m["virtual_channels"]
             logger.info(
                 "Applied montage '%s' from %s: %d channels, picks=%s",
                 m.get("name", "?"), montage_path.name,
@@ -302,6 +305,10 @@ class TFRContrastAnalyzer:
         self.raw_ifnfn = load_csv_to_raw(
             ifnfn_path, self.cfg.channels, self.cfg.montage
         )
+        # Apply virtual channels (e.g. Weighted Laplacian) before picking
+        self._apply_virtual_channels(self.raw_fot)
+        self._apply_virtual_channels(self.raw_ifnfn)
+
         self._apply_picks(self.raw_fot)
         self._apply_picks(self.raw_ifnfn)
 
@@ -312,10 +319,57 @@ class TFRContrastAnalyzer:
         by marker codes 101/201.
         """
         raw = load_csv_to_raw(csv_path, self.cfg.channels, self.cfg.montage)
+        self._apply_virtual_channels(raw)
         self._apply_picks(raw)
         # Both conditions share the same Raw — epoching separates them
         self.raw_fot = raw
         self.raw_ifnfn = raw
+
+    def _apply_virtual_channels(self, raw: mne.io.RawArray) -> None:
+        """Computes and adds virtual channels (e.g., Weighted Laplacian) from config."""
+        if not self.cfg.virtual_channels or not raw:
+            return
+
+        for name, params in self.cfg.virtual_channels.items():
+            try:
+                base_ch = params.get("base")
+                weights = params.get("weights", {})
+                divisor = params.get("divisor", 1.0)
+
+                if base_ch not in raw.ch_names:
+                    logger.warning(
+                        "Base channel %s for virtual channel %s not found. Skipping.",
+                        base_ch, name
+                    )
+                    continue
+
+                # Get data for base channel
+                base_data = raw.get_data(picks=[base_ch])[0]
+
+                # Compute weighted average of reference channels
+                ref_sum = np.zeros_like(base_data)
+                for ref_ch, weight in weights.items():
+                    if ref_ch in raw.ch_names:
+                        ref_sum += raw.get_data(picks=[ref_ch])[0] * weight
+                    else:
+                        logger.warning(
+                            "Ref channel %s for virtual channel %s not found. Skipping weight.",
+                            ref_ch, name
+                        )
+
+                # Laplacian = Base - (WeightedSum / Divisor)
+                virtual_data = base_data - (ref_sum / divisor)
+
+                # Add to Raw object
+                info = mne.create_info([name], raw.info["sfreq"], ch_types=["eeg"])
+                new_raw = mne.io.RawArray(
+                    virtual_data[np.newaxis, :], info, verbose=False
+                )
+                raw.add_channels([new_raw], force_update_info=True)
+                logger.info("Created virtual channel: %s", name)
+
+            except Exception as e:
+                logger.error("Failed to create virtual channel %s: %s", name, e)
 
     def _apply_picks(self, raw: mne.io.RawArray) -> None:
         """Optionally sub-select channels."""
@@ -812,7 +866,21 @@ class TFRContrastAnalyzer:
         n_fot = str(getattr(self.tfr_fot, 'nave', '?')) if self.tfr_fot else "N/A"
         n_ifnfn = str(getattr(self.tfr_ifnfn, 'nave', '?')) if self.tfr_ifnfn else "N/A"
         ch_names = self.tfr_fot.ch_names if self.tfr_fot else []
-        n_ch = len(ch_names)
+
+        # Breakdown into physical and virtual
+        virt_names = list(self.cfg.virtual_channels.keys()) if self.cfg.virtual_channels else []
+        ch_names_phys = [ch for ch in ch_names if ch not in virt_names]
+        ch_names_virt = [ch for ch in ch_names if ch in virt_names]
+        n_ch_phys = len(ch_names_phys)
+        n_ch_virt = len(ch_names_virt)
+
+        if n_ch_virt > 0:
+            montage_text = (
+                f"{n_ch_phys} channels (+ {n_ch_virt} virt. channels: "
+                f"{', '.join(ch_names_virt)})"
+            )
+        else:
+            montage_text = f"{n_ch_phys} channels"
 
         # --- Section 1: Channel summary (computed first, shown first) ---
         summary_section = ""
@@ -1052,7 +1120,7 @@ table th, table td {{ padding: 8px 10px; }}
 </div>
 <table class="params-table">
     <tr><td>Montage</td><td>{html.escape(self.cfg.montage_profile)} &mdash;
-        {n_ch} channels: {', '.join(ch_names)}</td></tr>
+        {montage_text}: {', '.join(ch_names)}</td></tr>
     <tr><td>TFR method</td><td>Morlet wavelets, {self.cfg.tfr_fmin}&ndash;{self.cfg.tfr_fmax} Hz
         (step {self.cfg.tfr_fstep} Hz), cycles: {self.cfg.n_cycles_mode}</td></tr>
     <tr><td>Baseline normalization</td><td>{self.cfg.baseline_mode},
@@ -1704,6 +1772,22 @@ def main():
     # Apply montage YAML if provided (overrides channels/picks from config)
     if args.montage:
         cfg.apply_montage_yaml(args.montage)
+    elif cfg.montage_profile:
+        # Automatically resolve the profile name if it's not the default freg8
+        # (or even if it is, to ensure all fields are loaded correctly)
+        montage_dir = (
+            Path(__file__).resolve().parent.parent.parent.parent
+            / "config"
+            / "montages"
+        )
+        profile_path = montage_dir / f"{cfg.montage_profile}.yaml"
+        if profile_path.exists():
+            cfg.apply_montage_yaml(profile_path)
+        else:
+            logger.warning(
+                "Montage profile '%s' not found at %s",
+                cfg.montage_profile, profile_path
+            )
 
     cfg.output_dir = str(args.output)
     if args.stim_freq is not None:

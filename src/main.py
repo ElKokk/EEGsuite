@@ -124,6 +124,16 @@ def main():
         else:
             cfg = TFRContrastConfig()
 
+        # Automatically resolve the montage profile if set
+        if cfg.montage_profile:
+            montage_dir = Path(__file__).resolve().parent.parent / "config" / "montages"
+            profile_path = montage_dir / f"{cfg.montage_profile}.yaml"
+            if profile_path.exists():
+                cfg.apply_montage_yaml(profile_path)
+            else:
+                logger.warning("Montage profile '%s' not found at %s", 
+                               cfg.montage_profile, profile_path)
+
         output_dir = args.output
         cfg.output_dir = str(output_dir)
 
