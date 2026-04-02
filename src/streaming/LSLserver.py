@@ -135,4 +135,4 @@ class LSLServer:
                 logger.info("Releasing BrainFlow session...")
                 self.board_shim.stop_stream()
                 self.board_shim.release_session()
-                logger.info("✅ Port released.")
+                logger.info("Port released.")

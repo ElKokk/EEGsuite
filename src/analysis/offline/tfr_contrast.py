@@ -1,13 +1,13 @@
 """
-tfr_contrast.py — Time–Frequency Contrast Analysis (Section 9 Pipeline)
+tfr_contrast.py - Time-Frequency Contrast Analysis (Section 9 Pipeline)
 
 Implements the four-step analysis pipeline from the EEG Measurement Protocol
 for Tactile Stimulation with Strong Electromagnetic Noise:
 
-    Step 1: Full Time–Frequency Transform (Morlet wavelets)
+    Step 1: Full Time-Frequency Transform (Morlet wavelets)
     Step 2: Epoching around triggers with safety margins
     Step 3: Baseline normalization (dB / log-ratio / percent)
-    Step 4: Condition contrasting  (FOT − IFNFN)
+    Step 4: Condition contrasting (FOT - IFNFN)
 
 The contrast cancels EM tactor noise, environmental noise, and non-task
 brain activity, isolating the neural response attributable to tactile
@@ -44,7 +44,7 @@ matplotlib.use("Agg")
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Marker definitions — must match the recording module (sweep.py)
+# Marker definitions - must match the recording module (sweep.py)
 # ---------------------------------------------------------------------------
 # Condition-aware markers (new)
 MARKER_FOT_STIM_ON   = 101   # Finger-On-Tactor: stimulation onset
@@ -419,7 +419,7 @@ class TFRContrastAnalyzer:
           4. Return the averaged (across trials) TFR.
         """
         if raw is None:
-            logger.error("Raw data is None — cannot compute TFR.")
+            logger.error("Raw data is None - cannot compute TFR.")
             return None
 
         # --- Get events from annotations ---
@@ -540,14 +540,14 @@ class TFRContrastAnalyzer:
 
         if self.tfr_fot is None or self.tfr_ifnfn is None:
             logger.error(
-                "Pipeline incomplete — could not compute TFR for both conditions."
+                "Pipeline incomplete - could not compute TFR for both conditions."
             )
             return False
 
-        # Step 4: Contrast = FOT − IFNFN
+        # Step 4: Contrast = FOT - IFNFN
         self.tfr_contrast = self.tfr_fot.copy()
         self.tfr_contrast._data = self.tfr_fot.data - self.tfr_ifnfn.data
-        logger.info("✅ Contrast TFR computed (FOT − IFNFN).")
+        logger.info("Contrast TFR computed (FOT - IFNFN).")
         return True
 
     def run_single_condition(self, condition: str = "fot") -> bool:

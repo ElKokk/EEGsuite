@@ -274,7 +274,7 @@ class EEGVisualizer:
         ax.plot(times, data[0], color='black', lw=0.5, alpha=0.7)
         ax.set_title(f"EEG Timeseries (Channel 1) - {t_start:.1f}s to {t_end:.1f}s")
         ax.set_xlabel("Time (s)")
-        ax.set_ylabel("Amplitude (µV)")
+        ax.set_ylabel("Amplitude (uV)")
         
         # Add event markers with the correct labels
         if self.raw.annotations:

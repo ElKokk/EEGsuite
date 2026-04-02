@@ -52,8 +52,8 @@ def set_cloud_root(new_root: Optional[Path] = None) -> None:
     except (OSError, ValueError) as e:
         # If logging isn't setup yet, we use a simple print here as a last resort,
         # but usually main.py handles the logging setup after this.
-        print(f"⚠️ Warning: Requested root {candidate_root} is unreachable ({e}).")
-        print(f"⚠️ Falling back to local project root: {ROOT_DIR}")
+        print(f"Warning: Requested root {candidate_root} is unreachable ({e}).")
+        print(f"Falling back to local project root: {ROOT_DIR}")
         cloud_root = ROOT_DIR
 
     DATA_DIR = cloud_root / "data"

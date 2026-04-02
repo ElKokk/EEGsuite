@@ -37,7 +37,7 @@ The protocol begins with three critical baseline measurements to calibrate the e
 
 ### 2️⃣ Baseline 2: EM Artifact Template (NO CONTACT)
 - **Manual Def**: `Baseline_2` (In-Field-Not-Feeling-Nipple / IFNFN)
-- **Procedure**: VHP board is **ON** and stimulation is **ACTIVE**, but the subject's finger is held **5 cm away** from the tactor.
+- **Procedure**: VHP board is **ON** and stimulation is **ACTIVE**, but the subject's finger is held **1 mm away** from the tactor nipple.
 - **Purpose**: Captures the pure electromagnetic (EM) artifact radiated by the stimulator. This is the "artifact template" used for subtraction in TFR analysis.
 - **Markers**: 
     - `31`: Stimulation ACTIVE (No contact).

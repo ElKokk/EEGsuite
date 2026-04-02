@@ -56,7 +56,7 @@ def main():
     try:
         initialize_directories()
     except Exception as e:
-        print(f"❌ Critical Error: Could not initialize data directories: {e}")
+        print(f"Critical Error: Could not initialize data directories: {e}")
         sys.exit(1)
 
     logger = setup_logger()
@@ -82,7 +82,8 @@ def main():
         logger.info("Setting up Sweep engine...")
         sweep = EEGSweep(cfg)
         sweep.connect_lsl()
-        sweep.connect_vhp()
+        # Silent connect initially, as Baseline 1 (VHP OFF) handles connection later
+        sweep.connect_vhp(silent=True)
         sweep.run_sweep()
 
     elif args.command == "analyze":
@@ -144,18 +145,18 @@ def main():
         success = analyzer.run_pipeline()
 
         if not success:
-            logger.error("❌ Pipeline FAILED")
+            logger.error("Pipeline FAILED")
             sys.exit(1)
 
         invalid = analyzer.validate()
         if invalid:
-            logger.error("❌ Validation failed: %s", invalid)
+            logger.error("Validation failed: %s", invalid)
             sys.exit(2)
         else:
-            logger.info("✅ Analyzer data validated")
+            logger.info("Analyzer data validated")
 
         report_path = analyzer.generate_report(output_dir=output_dir)
-        print(f"✅ Report: {report_path}")
+        print(f"Report: {report_path}")
 
 
 
