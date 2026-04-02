@@ -28,6 +28,8 @@ python -m src.main sweep -d config/hardware/freeeeg.yaml -p config/protocols/swe
 
 The protocol begins with three critical baseline measurements to calibrate the environment and the stimulator's artifact profile.
 
+> 💡 **Tip:** Any of these baseline phases can be **skipped** by setting its duration to `0` in your protocol YAML configuration.
+
 ### 1️⃣ Baseline 1: Environmental Noise (VHP OFF/ON)
 - **Manual Def**: `Baseline_1` (Pre-start EEG measurement)
 - **Procedure**: EEG recording starts *before* the VHP board is powered ON or while it is disconnected.

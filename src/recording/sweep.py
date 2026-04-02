@@ -280,14 +280,14 @@ class EEGSweep:
         # --- BASELINE 1: VHP OFF ---
         b1_dur = float(p.get("Baselines", {}).get("Baseline_1", 10.0))
         if b1_dur > 0:
-            # Force disconnect if already connected, as we need it OFF
+            # Force disconnect for Baseline 1 (Environmental noise requires VHP OFF)
             if self.vhp:
                 logger.info("Closing VHP connection for Baseline 1 (OFF phase)...")
                 self.vhp.close()
                 self.vhp = None
 
-            wait_for_space(f"Calibration Phase | Marker 3: Baseline 1 (VHP OFF). "
-                           f"Ensure VBS/VHP is OFF. Ready to record {b1_dur}s?")
+            wait_for_space(f"Calibration Phase | Marker 3: Baseline 1 (VHP OFF).\n"
+                           f"Ensure VBS/VHP is powered OFF. Ready to record {b1_dur}s?")
             logger.info("Recording Baseline 1 (VHP OFF phase)...")
             b1_path = RAW_DATA_DIR / f"{self.timestamp}_{self.config.board_id}_baseline_VHP_OFF.csv"
             
@@ -298,15 +298,9 @@ class EEGSweep:
             logger.info("Baseline 1 (VHP OFF) completed.")
             self.baseline_files.append(b1_path)
 
-        # Transition to VHP ON
-        b2_dur = float(p.get("Baselines", {}).get("Baseline_2", 10.0))
-        if self.config.serial_port:
-            # Re-verify connection since it was likely powered OFF
-            if self.vhp:
-                self.vhp.close()
-                self.vhp = None
-                
-            logger.info("Waiting for VBS/VHP connection...")
+        # Transition to VHP ON (Required for Baseline 2 or Sweep)
+        if self.config.serial_port and (not self.vhp or not self.vhp.is_connected()):
+            logger.info("VBS/VHP connection required for next phases.")
             wait_for_space("ACTION: Switch the VBS device ON now.\n"
                            "Wait 3 seconds for the device status LED to stabilize.")
             
@@ -319,10 +313,11 @@ class EEGSweep:
             
             logger.info("VBS device connected and initialized.")
 
-        # --- BASELINE 2: NO CONTACT ---
+        # --- BASELINE 2: NO CONTACT (IFNFN) ---
+        b2_dur = float(p.get("Baselines", {}).get("Baseline_2", 10.0))
         if b2_dur > 0:
             wait_for_space(f"Calibration Phase | Marker 31/33: Baseline 2 (No physical contact).\n"
-                           f"1. Place finger 1 mm away from tactors nipple (In-Field-Not-Feeling-Nipple / IFNFN).\n"
+                           f"1. Place finger 1 mm away from tactor nipple (IFNFN).\n"
                            f"2. Press SPACEBAR to record {b2_dur}s baseline.")
             logger.info("Recording Baseline 2 (VHP ON, STIM ON, no contact)...")
             
