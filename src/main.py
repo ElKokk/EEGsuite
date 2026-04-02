@@ -129,7 +129,7 @@ def main():
             montage_dir = Path(__file__).resolve().parent.parent / "config" / "montages"
             profile_path = montage_dir / f"{cfg.montage_profile}.yaml"
             if profile_path.exists():
-                cfg.apply_montage_yaml(profile_path)
+                cfg.apply_montage_yaml(profile_path, overwrite=False)
             else:
                 logger.warning("Montage profile '%s' not found at %s", 
                                cfg.montage_profile, profile_path)

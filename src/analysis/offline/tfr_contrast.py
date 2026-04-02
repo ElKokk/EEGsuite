@@ -86,21 +86,13 @@ class TFRContrastConfig:
     """All parameters for the TFR contrast pipeline."""
 
     # --- Channel / montage ---
-    # `channels` must list ALL 32 CSV columns in order, matching the
-    # physical FreeEEG32 wiring.  "NC" = Not Connected (dropped after load).
-    # This default mirrors config/montages/freg8.yaml exactly.
+    # The profile name (e.g., "freg8", "freg9"). The actual definitions
+    # (channels, pick_channels, virtual_channels) are loaded from
+    # config/montages/{profile}.yaml during startup.
     montage_profile: str = "freg8"
-    channels: List[str] = field(default_factory=lambda: [
-        "T7",  "C3",  "NC",  "NC",  "T8",  "FC4", "NC",  "NC",   # CH1-8
-        "FC3", "C4",  "NC",  "NC",  "CP3", "CP4", "NC",  "NC",   # CH9-16
-        "NC",  "NC",  "NC",  "NC",  "NC",  "NC",  "NC",  "NC",   # CH17-24
-        "NC",  "NC",  "NC",  "NC",  "NC",  "NC",  "NC",  "NC",   # CH25-32
-    ])
+    channels: List[str] = field(default_factory=list)
     montage: str = "standard_1020"
-    # `pick_channels` selects only the connected electrodes for analysis.
-    pick_channels: Optional[List[str]] = field(default_factory=lambda: [
-        "T7", "C3", "T8", "FC4", "FC3", "C4", "CP3", "CP4"
-    ])
+    pick_channels: Optional[List[str]] = None
     virtual_channels: Optional[Dict[str, Any]] = None
 
     # --- TFR parameters ---
@@ -157,10 +149,10 @@ class TFRContrastConfig:
         filtered = {k: v for k, v in flat.items() if k in known_fields}
         return cls(**filtered)
 
-    def apply_montage_yaml(self, montage_path: Path) -> None:
+    def apply_montage_yaml(self, montage_path: Path, overwrite: bool = True) -> None:
         """
         Load a montage YAML (e.g. config/montages/freg8.yaml) and apply
-        its channels, pick_channels, and montage to this config.
+        its fields to this config.
         Keeps this config aligned with the montage definitions used by
         EEGVisualizer and the rest of the repo.
         """
@@ -168,16 +160,26 @@ class TFRContrastConfig:
             import yaml
             with open(montage_path, "r") as f:
                 m = yaml.safe_load(f)
-            if "channels" in m:
+
+            # Helper to check if a value should be overwritten
+            def _should_set(key: str, current_val: Any, default_val: Any) -> bool:
+                if overwrite:
+                    return True
+                if current_val == default_val:
+                    return True
+                return False
+
+            if "channels" in m and _should_set("channels", self.channels, []):
                 self.channels = m["channels"]
-            if "pick_channels" in m:
+            if "pick_channels" in m and _should_set("pick_channels", self.pick_channels, None):
                 self.pick_channels = m["pick_channels"]
-            if "montage" in m:
+            if "montage" in m and _should_set("montage", self.montage, "standard_1020"):
                 self.montage = m["montage"]
-            if "name" in m:
+            if "name" in m and _should_set("name", self.montage_profile, "freg8"):
                 self.montage_profile = m["name"]
-            if "virtual_channels" in m:
+            if "virtual_channels" in m and _should_set("virtual_channels", self.virtual_channels, None):
                 self.virtual_channels = m["virtual_channels"]
+
             logger.info(
                 "Applied montage '%s' from %s: %d channels, picks=%s",
                 m.get("name", "?"), montage_path.name,
@@ -1782,7 +1784,7 @@ def main():
         )
         profile_path = montage_dir / f"{cfg.montage_profile}.yaml"
         if profile_path.exists():
-            cfg.apply_montage_yaml(profile_path)
+            cfg.apply_montage_yaml(profile_path, overwrite=False)
         else:
             logger.warning(
                 "Montage profile '%s' not found at %s",
