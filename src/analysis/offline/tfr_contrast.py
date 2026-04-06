@@ -27,8 +27,6 @@ Usage (from main.py):
 
 import logging
 import html
-import argparse
-import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass, field
