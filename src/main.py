@@ -41,9 +41,9 @@ def main():
     analyze_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
     # Analyze_contrast command
-    analyze_contrast_parser = subparsers.add_parser("analyze_contrast", help="Analyze data by contrast")
-    analyze_contrast_parser.add_argument("--fot", type=Path, required=True,help="CSV file for FOT condition",)
-    analyze_contrast_parser.add_argument("--ifnfn", type=Path, required=True,help="CSV file for IFNFN condition",)
+    analyze_contrast_parser = subparsers.add_parser("analyze_contrast", help="TFR Contrast Analysis (Section 9 Pipeline)")
+    analyze_contrast_parser.add_argument("--fot", type=Path, required=True,help="MNE RAW file for FOT condition",)
+    analyze_contrast_parser.add_argument("--ifnfn", type=Path, required=True,help="MNE RAW file for IFNFN condition",)
     analyze_contrast_parser.add_argument("--config", type=Path, default=None,help="Analysis YAML config (optional)",)
     analyze_contrast_parser.add_argument("--output", type=Path, default=Path("reports"),help="Output directory for report",)
 
